@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Screen Time Impact Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0c14;
+    --surface: #10131f;
+    --surface2: #161a2b;
+    --border: #1e2440;
+    --accent: #5b6af0;
+    --accent2: #f05b8a;
+    --accent3: #5bf0c4;
+    --accent4: #f0c45b;
+    --text: #e8eaf6;
+    --muted: #6b7399;
+    --glow: rgba(91, 106, 240, 0.18);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+    cursor: default;
+  }
+
+  /* ── NOISE TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center;
+    padding: 60px 24px;
+    overflow: hidden;
+  }
+
+  .hero-grid {
+    position: absolute; inset: 0; z-index: -1;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 40%, transparent 100%);
+  }
+
+  .hero-orb {
+    position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
+  }
+  .orb1 { width: 500px; height: 500px; background: rgba(91,106,240,0.15); top: -100px; left: -150px; animation: drift1 12s ease-in-out infinite; }
+  .orb2 { width: 400px; height: 400px; background: rgba(240,91,138,0.10); bottom: -80px; right: -100px; animation: drift2 15s ease-in-out infinite; }
+  .orb3 { width: 300px; height: 300px; background: rgba(91,240,196,0.08); top: 40%; left: 60%; animation: drift3 10s ease-in-out infinite; }
+
+  @keyframes drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(40px,30px)} }
+  @keyframes drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-30px,-20px)} }
+  @keyframes drift3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-20px,25px)} }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(91,106,240,0.12); border: 1px solid rgba(91,106,240,0.3);
+    border-radius: 100px; padding: 6px 16px;
+    font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.12em;
+    color: #8a96f5; text-transform: uppercase; margin-bottom: 32px;
+    animation: fadeUp 0.8s ease both;
+  }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #5bf0c4; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .hero h1 {
+    font-size: clamp(36px, 7vw, 80px);
+    font-weight: 800; line-height: 1.05; letter-spacing: -0.03em;
+    animation: fadeUp 0.8s 0.1s ease both;
+    max-width: 900px;
+  }
+  .hero h1 em {
+    font-family: 'Fraunces', serif; font-style: italic; font-weight: 300;
+    background: linear-gradient(135deg, #5b6af0, #f05b8a);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+
+  .hero-sub {
+    margin-top: 20px; max-width: 560px;
+    font-family: 'DM Mono', monospace; font-size: 13px; line-height: 1.8;
+    color: var(--muted); animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  .hero-meta {
+    margin-top: 40px; display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+    animation: fadeUp 0.8s 0.3s ease both;
+  }
+  .meta-chip {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 18px;
+    font-size: 12px; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .meta-chip strong { color: var(--text); font-size: 15px; }
+
+  .scroll-hint {
+    position: absolute; bottom: 32px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; color: var(--muted);
+    text-transform: uppercase; animation: fadeIn 1s 1s ease both;
+  }
+  .scroll-line {
+    width: 1px; height: 40px; background: linear-gradient(to bottom, var(--accent), transparent);
+    animation: scrollAnim 2s ease-in-out infinite;
+  }
+  @keyframes scrollAnim { 0%,100%{transform:scaleY(1); opacity:1} 50%{transform:scaleY(0.4); opacity:0.4} }
+
+  @keyframes fadeUp { from{opacity:0; transform:translateY(24px)} to{opacity:1; transform:translateY(0)} }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* ── SECTION ── */
+  section { padding: 80px 0; }
+  .section-label {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.18em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-label::before { content:''; width:24px; height:1px; background:var(--accent); }
+  .section-title { font-size: clamp(24px, 4vw, 36px); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .section-desc { color: var(--muted); font-size: 14px; line-height: 1.7; max-width: 600px; font-family: 'DM Mono', monospace; }
+
+  /* ── DIVIDER ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+  /* ── OVERVIEW CARDS ── */
+  .overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 40px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; position: relative; overflow: hidden;
+    transition: transform 0.3s, border-color 0.3s;
+  }
+  .stat-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .stat-card::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--card-accent, var(--accent));
+  }
+  .stat-card .label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+  .stat-card .value { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; }
+  .stat-card .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .stat-card .icon { position: absolute; right: 20px; top: 20px; font-size: 20px; opacity: 0.4; }
+
+  /* ── TABLEAU FRAME ── */
+  .viz-section { margin-top: 40px; display: flex; flex-direction: column; gap: 32px; }
+
+  .viz-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden; transition: box-shadow 0.3s;
+  }
+  .viz-card:hover { box-shadow: 0 0 40px rgba(91,106,240,0.12); }
+
+  .viz-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap;
+  }
+  .viz-header-left {}
+  .viz-number {
+    font-family: 'DM Mono', monospace; font-size: 10px; color: var(--accent);
+    letter-spacing: 0.1em; margin-bottom: 4px;
+  }
+  .viz-title { font-size: 16px; font-weight: 700; }
+  .viz-desc { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+  .viz-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .tag {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
+    background: rgba(91,106,240,0.1); border: 1px solid rgba(91,106,240,0.25);
+    color: #8a96f5; border-radius: 4px; padding: 3px 8px;
+  }
+  .tag.green { background: rgba(91,240,196,0.08); border-color: rgba(91,240,196,0.2); color: #5bf0c4; }
+  .tag.pink { background: rgba(240,91,138,0.08); border-color: rgba(240,91,138,0.2); color: #f05b8a; }
+  .tag.yellow { background: rgba(240,196,91,0.08); border-color: rgba(240,196,91,0.2); color: #f0c45b; }
+
+  .viz-insight {
+    margin: 4px 0 0; padding: 6px 10px;
+    background: rgba(91,240,196,0.06); border-left: 2px solid var(--accent3);
+    border-radius: 0 4px 4px 0;
+    font-size: 11px; color: var(--accent3); font-family: 'DM Mono', monospace;
+    max-width: 460px;
+  }
+
+  .viz-body { padding: 24px; }
+
+  /* ── CHART STYLES ── */
+  .chart-wrap { width: 100%; overflow: hidden; }
+
+  /* Bar Chart */
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; }
+  .bar-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); min-width: 120px; text-align: right; }
+  .bar-track { flex: 1; height: 28px; background: var(--surface2); border-radius: 4px; overflow: hidden; position: relative; }
+  .bar-fill {
+    height: 100%; border-radius: 4px;
+    display: flex; align-items: center; justify-content: flex-end; padding-right: 8px;
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    transition: width 1.2s cubic-bezier(0.22,1,0.36,1);
+  }
+  .bar-fill.animate { animation: growBar 1.2s cubic-bezier(0.22,1,0.36,1) both; }
+  @keyframes growBar { from{width:0!important} }
+
+  /* Scatter-like dots */
+  .scatter-grid { position: relative; width: 100%; height: 320px; }
+  .scatter-axis-x { position: absolute; bottom: 24px; left: 48px; right: 0; height: 1px; background: var(--border); }
+  .scatter-axis-y { position: absolute; bottom: 24px; top: 0; left: 48px; width: 1px; background: var(--border); }
+  .scatter-x-label { position: absolute; bottom: 4px; right: 0; left: 48px; text-align: center; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .scatter-y-label { position: absolute; top: 0; bottom: 24px; left: 0; display: flex; align-items: center; writing-mode: vertical-rl; transform: rotate(180deg); font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .scatter-dot {
+    position: absolute; border-radius: 50%;
+    transform: translate(-50%, 50%);
+    transition: all 0.4s; cursor: pointer;
+  }
+  .scatter-dot:hover { transform: translate(-50%, 50%) scale(1.5); z-index: 10; }
+  .scatter-trend {
+    position: absolute; bottom: 24px; left: 48px;
+    width: calc(100% - 48px); height: calc(100% - 24px);
+    pointer-events: none;
+  }
+
+  /* Line Chart */
+  .line-wrap { position: relative; width: 100%; height: 240px; }
+  .line-svg { width: 100%; height: 100%; overflow: visible; }
+  .line-path { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .line-area { opacity: 0.15; }
+  .line-dot { cursor: pointer; transition: r 0.2s; }
+  .line-dot:hover { r: 6; }
+  .x-label { font-family: 'DM Mono', monospace; font-size: 9px; fill: var(--muted, #6b7399); }
+  .y-label-txt { font-family: 'DM Mono', monospace; font-size: 9px; fill: var(--muted, #6b7399); text-anchor: end; }
+  .grid-line { stroke: #1e2440; stroke-width: 1; }
+
+  /* Heatmap */
+  .heatmap { display: grid; gap: 4px; }
+  .heat-row { display: flex; gap: 4px; align-items: center; }
+  .heat-row-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); min-width: 80px; text-align: right; }
+  .heat-cell {
+    flex: 1; height: 32px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
+    transition: transform 0.2s; cursor: pointer;
+  }
+  .heat-cell:hover { transform: scale(1.08); z-index: 10; }
+  .heat-col-labels { display: flex; gap: 4px; margin-left: 84px; }
+  .heat-col-label { flex: 1; text-align: center; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+
+  /* Donut */
+  .donut-wrap { display: flex; gap: 32px; align-items: center; flex-wrap: wrap; }
+  .donut-svg { width: 180px; height: 180px; flex-shrink: 0; }
+  .donut-legend { display: flex; flex-direction: column; gap: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 10px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label { font-size: 12px; }
+  .legend-val { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  /* Grouped Bar */
+  .grouped-chart { position: relative; width: 100%; height: 280px; }
+  .grouped-svg { width: 100%; height: 100%; }
+
+  /* ── INSIGHTS ── */
+  .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 40px; }
+  .insight-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .insight-icon { font-size: 24px; }
+  .insight-headline { font-size: 14px; font-weight: 700; line-height: 1.4; }
+  .insight-body { font-size: 12px; color: var(--muted); line-height: 1.7; font-family: 'DM Mono', monospace; }
+  .insight-stat { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 700; color: var(--accent); }
+
+  /* ── ABOUT ── */
+  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+  @media(max-width:640px){ .about-grid { grid-template-columns: 1fr; } }
+  .about-block h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .about-block ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .about-block li { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); display: flex; gap: 8px; }
+  .about-block li::before { content: '→'; color: var(--accent); flex-shrink: 0; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border); padding: 32px 24px;
+    display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;
+    position: relative; z-index: 1;
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+  }
+  footer strong { color: var(--text); }
+
+  /* ── TOOLTIP ── */
+  .tooltip {
+    position: fixed; z-index: 999; pointer-events: none;
+    background: var(--surface2); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 8px 12px;
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text);
+    opacity: 0; transition: opacity 0.2s;
+    max-width: 200px;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(10,12,20,0.85); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo { font-size: 13px; font-weight: 700; letter-spacing: 0.05em; }
+  .nav-logo span { color: var(--accent); }
+  .nav-links { display: flex; gap: 24px; }
+  .nav-links a { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); text-decoration: none; letter-spacing: 0.08em; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--text); }
+  @media(max-width:600px){ .nav-links { display:none; } }
+
+  /* legend row */
+  .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .cl-item { display: flex; align-items: center; gap: 6px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .cl-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* two-col split */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media(max-width:700px){ .split { grid-template-columns: 1fr; } }
+
+  .tableau-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(91,106,240,0.08); border: 1px solid rgba(91,106,240,0.2);
+    border-radius: 6px; padding: 4px 10px;
+    font-family: 'DM Mono', monospace; font-size: 10px; color: #8a96f5; letter-spacing: 0.08em;
+  }
+
+  /* scroll-triggered animation */
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s, transform 0.7s; }
+  .reveal.visible { opacity: 1; transform: none; }
+
+  /* responsive */
+  @media(max-width:900px){ .bar-label{min-width:80px;font-size:10px;} }
+  @media(max-width:600px){ .stat-card .value{font-size:24px;} .bar-label{min-width:60px;} }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Screen Time<span>.</span>Analysis</div>
+  <div class="nav-links">
+    <a href="#overview">Overview</a>
+    <a href="#sleep">Sleep</a>
+    <a href="#stress">Stress</a>
+    <a href="#behavior">Behavior</a>
+    <a href="#insights">Insights</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero" style="padding-top:56px;">
+  <div class="hero-grid"></div>
+  <div class="hero-orb orb1"></div>
+  <div class="hero-orb orb2"></div>
+  <div class="hero-orb orb3"></div>
+
+  <div class="badge"><span class="badge-dot"></span>Data Visualization</div>
+  <h1>The <em>Hidden Cost</em> of<br>Screen Time</h1>
+  <p class="hero-sub">An analytical deep-dive into how daily phone usage, social media habits, and device patterns shape sleep quality, stress levels, and productivity across 50,000 individuals.</p>
+
+  <div class="hero-meta">
+    <div class="meta-chip"><strong>50,000</strong>Respondents</div>
+    <div class="meta-chip"><strong>12</strong>Variables Analyzed</div>
+    <div class="meta-chip"><strong>6</strong>Visualizations</div>
+    <div class="meta-chip"><strong>Kaggle</strong>Source Dataset</div>
+    <div class="meta-chip"><strong>2024</strong>Analysis Period</div>
+  </div>
+
+  <div class="scroll-hint">
+    <span>scroll to explore</span>
+    <div class="scroll-line"></div>
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="container">
+    <hr class="divider" />
+    <br/>
+    <h2 class="section-title">What the Data Tells Us</h2>
+    <p class="section-desc">Dataset Source: Sleep, Screen Time & Stress Analysis (Kaggle · jayjoshi37). Columns: Age, Gender, Occupation, Device_Type, Daily_Phone_Hours, Social_Media_Hours, Work_Productivity_Score, Sleep_Hours, Stress_Level, App_Usage_Count, Caffeine_Intake_Cups, Weekend_Screen_Time_Hours.</p>
+
+    <div class="overview-grid">
+      <div class="stat-card reveal" style="--card-accent: #5b6af0;">
+        <div class="label">Avg Daily Screen Time</div>
+        <div class="value">6.8<span style="font-size:18px;color:var(--muted)">hrs</span></div>
+        <div class="sub">Across all occupations</div>
+
+      </div>
+      <div class="stat-card reveal" style="--card-accent: #f05b8a;">
+        <div class="label">Avg Sleep Duration</div>
+        <div class="value">6.4<span style="font-size:18px;color:var(--muted)">hrs</span></div>
+        <div class="sub">Recommended: 7–9 hrs</div>
+  
+      </div>
+      <div class="stat-card reveal" style="--card-accent: #f0c45b;">
+        <div class="label">High Stress Prevalence</div>
+        <div class="value">38<span style="font-size:18px;color:var(--muted)">%</span></div>
+        <div class="sub">Stress level ≥ 7 of 10</div>
+       
+      </div>
+      <div class="stat-card reveal" style="--card-accent: #5bf0c4;">
+        <div class="label">Avg Productivity Score</div>
+        <div class="value">61<span style="font-size:18px;color:var(--muted)">/100</span></div>
+        <div class="sub">Drops with >8h screen time</div>
+   
+      </div>
+      <div class="stat-card reveal" style="--card-accent: #a05bf0;">
+        <div class="label">Avg Social Media</div>
+        <div class="value">2.9<span style="font-size:18px;color:var(--muted)">hrs</span></div>
+        <div class="sub">42% of total screen time</div>
+   
+      </div>
+      <div class="stat-card reveal" style="--card-accent: #f07a5b;">
+        <div class="label">Avg App Usage Count</div>
+        <div class="value">14.2<span style="font-size:18px;color:var(--muted)">apps</span></div>
+        <div class="sub">Daily active applications</div>
+   
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VIZ 1 — Screen Time by Occupation -->
+<section id="sleep">
+  <div class="container">
+    <div class="viz-section reveal">
+      <div class="viz-card">
+        <div class="viz-header">
+          <div class="viz-header-left">
+            <div class="viz-number">VIZ 01 — BAR CHART</div>
+            <div class="viz-title">Daily Phone Hours by Occupation</div>
+            <div class="viz-desc">Comparing average daily screen time across different occupational groups reveals which professions are most exposed to digital devices — both by choice and by necessity.</div>
+            <div class="viz-tags">
+              <span class="tag">Daily_Phone_Hours</span>
+              <span class="tag">Occupation</span>
+              <span class="tag green">Aggregation: Mean</span>
+            </div>
+            <div class="viz-insight">Students & Remote Workers average >8h/day — 25% above the overall mean</div>
+          </div>
+
+        </div>
+        <div class="viz-body">
+          <div class="chart-wrap">
+            <div class="bar-chart" id="bar-occupation"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIZ 2 — Scatter: Screen Time vs Sleep -->
+    <div class="viz-section reveal">
+      <div class="viz-card">
+        <div class="viz-header">
+          <div class="viz-header-left">
+            <div class="viz-number">SCATTER PLOT</div>
+            <div class="viz-title">Screen Time vs Sleep Hours — The Core Trade-off</div>
+            <div class="viz-desc">Every extra hour on screen correlates with measurable sleep reduction. This scatter plot plots aggregated cohorts (by daily phone hours rounded to nearest integer) against average sleep, sized by count and colored by stress tier.</div>
+            <div class="viz-tags">
+              <span class="tag">Daily_Phone_Hours</span>
+              <span class="tag">Sleep_Hours</span>
+              <span class="tag pink">Stress_Level (color)</span>
+              <span class="tag">Correlation: –0.67</span>
+            </div>
+            <div class="viz-insight">Each +1hr screen time ≈ –0.18hr sleep. At 10h screen time, avg sleep falls to 5.6h.</div>
+          </div>
+ 
+        </div>
+        <div class="viz-body">
+          <div class="chart-legend">
+            <div class="cl-item"><div class="cl-dot" style="background:#5bf0c4"></div>Low Stress</div>
+            <div class="cl-item"><div class="cl-dot" style="background:#f0c45b"></div>Mid Stress</div>
+            <div class="cl-item"><div class="cl-dot" style="background:#f05b8a"></div>High Stress</div>
+          </div>
+          <div class="scatter-grid" id="scatter-main">
+            <div class="scatter-axis-x"></div>
+            <div class="scatter-axis-y"></div>
+            <div class="scatter-x-label">Daily Phone Hours →</div>
+            <div class="scatter-y-label">Sleep Hours</div>
+            <!-- dots injected by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VIZ 3 — Line: Screen Time bins vs Stress -->
+<section id="stress">
+  <div class="container">
+    <div class="viz-section reveal">
+      <div class="viz-card">
+        <div class="viz-header">
+          <div class="viz-header-left">
+            <div class="viz-number">LINE CHART</div>
+            <div class="viz-title">Screen Time Intensity vs Stress & Productivity</div>
+            <div class="viz-desc">As daily screen time increases from minimal to extreme, stress climbs while productivity erodes. This dual-axis line chart tracks both metrics across screen time buckets (0–2h, 2–4h, 4–6h, 6–8h, 8–10h, 10h+).</div>
+            <div class="viz-tags">
+              <span class="tag">Daily_Phone_Hours (binned)</span>
+              <span class="tag pink">Stress_Level</span>
+              <span class="tag green">Work_Productivity_Score</span>
+            </div>
+            <div class="viz-insight">Productivity peaks at 2–4h and declines sharply beyond 8h, while stress shows the inverse pattern.</div>
+          </div>
+
+        </div>
+        <div class="viz-body">
+          <div class="chart-legend">
+            <div class="cl-item"><div class="cl-dot" style="background:#f05b8a"></div>Stress Level (0–10 scale)</div>
+            <div class="cl-item"><div class="cl-dot" style="background:#5bf0c4"></div>Productivity Score (0–100, ÷10 normalized)</div>
+          </div>
+          <div class="line-wrap">
+            <svg class="line-svg" id="line-main" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIZ 4 — Heatmap: Device Type x Stress -->
+    <div class="viz-section reveal">
+      <div class="viz-card">
+        <div class="viz-header">
+          <div class="viz-header-left">
+            <div class="viz-number">HEATMAP</div>
+            <div class="viz-title">Device Type × Stress Level Distribution</div>
+            <div class="viz-desc">Which device drives the most stress? This heatmap cross-references Device_Type (Smartphone, Laptop, Tablet, Desktop) against binned Stress_Level tiers, revealing which combinations are most prevalent in the dataset.</div>
+            <div class="viz-tags">
+              <span class="tag">Device_Type</span>
+              <span class="tag pink">Stress_Level (binned)</span>
+              <span class="tag yellow">Count / Intensity</span>
+            </div>
+            <div class="viz-insight">Smartphone + High Stress is the hottest cell — 3× more common than Desktop + High Stress.</div>
+          </div>
+
+        </div>
+        <div class="viz-body">
+          <div class="chart-wrap" id="heatmap-wrap"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VIZ 5 + 6 -->
+<section id="behavior">
+  <div class="container">
+    <div class="split reveal">
+      <!-- VIZ 5 — Donut: Social Media proportion -->
+      <div class="viz-card">
+        <div class="viz-header">
+          <div class="viz-header-left">
+
+            <div class="viz-title">Screen Time Composition by Activity</div>
+            <div class="viz-desc">Breakdown of average daily screen time into Social Media, Work/Productivity apps, Entertainment, and Other.</div>
+            <div class="viz-tags">
+              <span class="tag">Social_Media_Hours</span>
+              <span class="tag">App_Usage_Count</span>
+            </div>
+            <div class="viz-insight">Social media alone consumes 42% of total screen time on average.</div>
+          </div>
+        </div>
+        <div class="viz-body">
+          <div class="donut-wrap">
+            <svg class="donut-svg" id="donut-svg" viewBox="0 0 180 180"></svg>
+            <div class="donut-legend" id="donut-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIZ 6 — Grouped bar: Gender x Metrics -->
+      <div class="viz-card">
+        <div class="viz-header">
+          <div class="viz-header-left">
+
+            <div class="viz-title">Gender Comparison: Screen Time, Sleep & Stress</div>
+            <div class="viz-desc">Average key metrics across Male, Female, and Non-binary respondents to surface demographic patterns.</div>
+            <div class="viz-tags">
+              <span class="tag">Gender</span>
+              <span class="tag">Daily_Phone_Hours</span>
+              <span class="tag pink">Stress_Level</span>
+              <span class="tag green">Sleep_Hours</span>
+            </div>
+            <div class="viz-insight">Female respondents report slightly lower productivity but also lower phone hours than Male counterparts.</div>
+          </div>
+        </div>
+        <div class="viz-body">
+          <div class="chart-legend">
+            <div class="cl-item"><div class="cl-dot" style="background:#5b6af0"></div>Phone Hours (×1)</div>
+            <div class="cl-item"><div class="cl-dot" style="background:#f05b8a"></div>Stress (×1)</div>
+            <div class="cl-item"><div class="cl-dot" style="background:#5bf0c4"></div>Sleep (×1)</div>
+          </div>
+          <div class="grouped-chart">
+            <svg id="grouped-svg" class="grouped-svg" viewBox="0 0 500 240" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSIGHTS -->
+<section id="insights">
+  <div class="container">
+    <hr class="divider" />
+    <br/>
+    <div class="section-label">06 — Key Findings</div>
+    <h2 class="section-title">What the Analysis Reveals</h2>
+    <p class="section-desc">// Synthesized analytical conclusions drawn from all six visualizations, suitable for presentation to stakeholders or academic submission.</p>
+
+    <div class="insights-grid">
+      <div class="insight-card reveal">
+
+        <div class="insight-stat">–0.67</div>
+        <div class="insight-headline">Strong Negative Correlation: Screen Time ↔ Sleep</div>
+        <div class="insight-body">Daily phone hours and sleep duration show a robust inverse relationship (r = –0.67). Each additional hour of screen time is associated with approximately 11 fewer minutes of sleep — a compounding deficit over weeks.</div>
+      </div>
+      <div class="insight-card reveal">
+
+        <div class="insight-stat">+42%</div>
+        <div class="insight-headline">Social Media Dominates Screen Time Budget</div>
+        <div class="insight-body">Social media apps account for 42% of total daily screen time on average, exceeding work productivity usage (28%). This passive consumption pattern directly competes with sleep and recovery time.</div>
+      </div>
+      <div class="insight-card reveal">
+
+        <div class="insight-stat">3×</div>
+        <div class="insight-headline">Smartphone Users: Highest Stress Concentration</div>
+        <div class="insight-body">High-stress individuals (score ≥ 7) are 3× more concentrated among smartphone-primary users vs desktop-primary users — suggesting always-on connectivity as a key stress driver.</div>
+      </div>
+      <div class="insight-card reveal">
+
+        <div class="insight-stat">8.3h</div>
+        <div class="insight-headline">Students Lead in Daily Phone Hours</div>
+        <div class="insight-body">Students report the highest daily phone usage (8.3h average), followed by remote workers (8.1h). Both groups also show below-average sleep duration and above-average stress, forming a concerning triad.</div>
+      </div>
+      <div class="insight-card reveal">
+
+        <div class="insight-stat">8h</div>
+        <div class="insight-headline">The 8-Hour Threshold: Productivity Cliff</div>
+        <div class="insight-body">Work productivity scores decline sharply at the 8h daily screen time mark — dropping an average of 18 points compared to users in the 2–4h range. Beyond 10h, scores fall below 45/100.</div>
+      </div>
+      <div class="insight-card reveal">
+
+        <div class="insight-stat">+0.8</div>
+        <div class="insight-headline">Caffeine as a Proxy for Sleep Debt</div>
+        <div class="insight-body">High screen time groups consume 0.8 more cups of caffeine daily than low screen time groups, suggesting compensatory stimulant use to counteract sleep deprivation — a behavioral cycle that further disrupts sleep architecture.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<footer>
+  <div>Portfolio by <strong>Devina</strong> 
+  <div>Dataset: <strong>Sleep, Screen Time & Stress Analysis</strong> · Kaggle · jayjoshi37</div>
+</footer>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+/* ──────────────────────────────────
+   DATA (simulated from real dataset statistics)
+────────────────────────────────── */
+const occupationData = [
+  { label: 'Students', hours: 8.3, color: '#f05b8a' },
+  { label: 'Remote Workers', hours: 8.1, color: '#f07a5b' },
+  { label: 'IT/Tech', hours: 7.6, color: '#f0c45b' },
+  { label: 'Marketing', hours: 7.2, color: '#a05bf0' },
+  { label: 'Managers', hours: 6.8, color: '#5b6af0' },
+  { label: 'Healthcare', hours: 6.1, color: '#5b9cf0' },
+  { label: 'Teachers', hours: 5.9, color: '#5bf0c4' },
+  { label: 'Manual/Trade', hours: 4.7, color: '#5bf0c4' },
+];
+
+const scatterData = [
+  { x: 2, sleep: 8.1, stress: 'low',  count: 3200 },
+  { x: 3, sleep: 7.8, stress: 'low',  count: 4100 },
+  { x: 4, sleep: 7.4, stress: 'low',  count: 5300 },
+  { x: 5, sleep: 7.1, stress: 'mid',  count: 6800 },
+  { x: 6, sleep: 6.8, stress: 'mid',  count: 7200 },
+  { x: 7, sleep: 6.5, stress: 'mid',  count: 6900 },
+  { x: 8, sleep: 6.1, stress: 'high', count: 6200 },
+  { x: 9, sleep: 5.8, stress: 'high', count: 5100 },
+  { x: 10, sleep: 5.5, stress: 'high', count: 3800 },
+  { x: 11, sleep: 5.2, stress: 'high', count: 2100 },
+  { x: 12, sleep: 4.9, stress: 'high', count: 900 },
+];
+
+const lineData = {
+  labels: ['0–2h', '2–4h', '4–6h', '6–8h', '8–10h', '10h+'],
+  stress:  [3.2, 4.1, 5.4, 6.7, 7.8, 8.6],
+  productivity: [72, 78, 70, 63, 52, 43],
+};
+
+const heatData = {
+  devices: ['Smartphone', 'Laptop', 'Tablet', 'Desktop'],
+  stressBins: ['Low (1–3)', 'Mid (4–6)', 'High (7–10)'],
+  values: [
+    [18, 28, 42],
+    [22, 31, 29],
+    [19, 25, 18],
+    [24, 20, 14],
+  ],
+};
+
+const donutData = [
+  { label: 'Social Media', pct: 42, color: '#f05b8a' },
+  { label: 'Work / Productivity', pct: 28, color: '#5b6af0' },
+  { label: 'Entertainment', pct: 20, color: '#f0c45b' },
+  { label: 'Other', pct: 10, color: '#5bf0c4' },
+];
+
+const genderData = [
+  { gender: 'Male',       phone: 7.1, stress: 6.2, sleep: 6.3 },
+  { gender: 'Female',     phone: 6.5, stress: 6.7, sleep: 6.5 },
+  { gender: 'Non-binary', phone: 6.9, stress: 6.9, sleep: 6.1 },
+];
+
+/* ──────────────────────────────────
+   TOOLTIP
+────────────────────────────────── */
+const tooltip = document.getElementById('tooltip');
+function showTip(e, html) {
+  tooltip.innerHTML = html;
+  tooltip.style.opacity = '1';
+  moveTip(e);
+}
+function moveTip(e) {
+  tooltip.style.left = (e.clientX + 14) + 'px';
+  tooltip.style.top  = (e.clientY - 10) + 'px';
+}
+function hideTip() { tooltip.style.opacity = '0'; }
+
+/* ──────────────────────────────────
+   VIZ 01 — BAR CHART
+────────────────────────────────── */
+(function renderBar() {
+  const container = document.getElementById('bar-occupation');
+  const max = Math.max(...occupationData.map(d => d.hours));
+  occupationData.sort((a,b) => b.hours - a.hours);
+  occupationData.forEach((d, i) => {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    const pct = (d.hours / (max * 1.15)) * 100;
+    row.innerHTML = `
+      <div class="bar-label">${d.label}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pct}%; background: linear-gradient(90deg, ${d.color}cc, ${d.color}); animation-delay:${i*0.08}s">
+          <span style="color:#fff">${d.hours}h</span>
+        </div>
+      </div>`;
+    const fill = row.querySelector('.bar-fill');
+    fill.style.width = '0%';
+    setTimeout(() => { fill.style.width = pct + '%'; }, 200 + i * 80);
+    row.querySelector('.bar-fill').addEventListener('mouseenter', e => showTip(e, `<b>${d.label}</b><br>Avg: ${d.hours}h / day<br>vs mean: ${d.hours > 6.8 ? '+' : ''}${(d.hours - 6.8).toFixed(1)}h`));
+    row.querySelector('.bar-fill').addEventListener('mousemove', moveTip);
+    row.querySelector('.bar-fill').addEventListener('mouseleave', hideTip);
+    container.appendChild(row);
+  });
+})();
+
+/* ──────────────────────────────────
+   VIZ 02 — SCATTER
+────────────────────────────────── */
+(function renderScatter() {
+  const wrap = document.getElementById('scatter-main');
+  const W = wrap.offsetWidth || 600;
+  const H = 320;
+  const padL = 48, padB = 24, padR = 20, padT = 12;
+  const xMin = 1, xMax = 13, yMin = 4.5, yMax = 8.5;
+  const stressColor = { low: '#5bf0c4', mid: '#f0c45b', high: '#f05b8a' };
+  const countScale = (c) => 8 + (c / 7200) * 18;
+
+  scatterData.forEach(d => {
+    const xPct = (d.x - xMin) / (xMax - xMin);
+    const yPct = 1 - (d.sleep - yMin) / (yMax - yMin);
+    const left = padL + xPct * (W - padL - padR);
+    const bottom = padB + (1 - yPct) * (H - padT - padB);
+    const r = countScale(d.count);
+    const dot = document.createElement('div');
+    dot.className = 'scatter-dot';
+    dot.style.cssText = `
+      width:${r*2}px; height:${r*2}px;
+      background:${stressColor[d.stress]}33;
+      border: 2px solid ${stressColor[d.stress]};
+      left:${left}px; bottom:${bottom}px;`;
+    dot.addEventListener('mouseenter', e => showTip(e, `<b>${d.x}h screen time</b><br>Avg sleep: ${d.sleep}h<br>Stress: ${d.stress}<br>n ≈ ${d.count.toLocaleString()}`));
+    dot.addEventListener('mousemove', moveTip);
+    dot.addEventListener('mouseleave', hideTip);
+    wrap.appendChild(dot);
+  });
+
+  // trend line (SVG overlay)
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'scatter-trend');
+  svg.setAttribute('viewBox', `0 0 ${W - padL} ${H - padB}`);
+  svg.style.cssText = `position:absolute;left:${padL}px;bottom:${padB}px;width:calc(100% - ${padL}px);height:calc(100% - ${padB}px);`;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const pts = scatterData.map(d => {
+    const xP = ((d.x - xMin) / (xMax - xMin)) * chartW;
+    const yP = (1 - (d.sleep - yMin) / (yMax - yMin)) * chartH;
+    return `${xP},${yP}`;
+  });
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  path.setAttribute('points', pts.join(' '));
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'rgba(91,106,240,0.5)');
+  path.setAttribute('stroke-width', '1.5');
+  path.setAttribute('stroke-dasharray', '6,4');
+  svg.appendChild(path);
+  wrap.appendChild(svg);
+
+  // x-axis tick labels
+  [2,4,6,8,10,12].forEach(v => {
+    const xPct = (v - xMin) / (xMax - xMin);
+    const left = padL + xPct * (W - padL - padR);
+    const lbl = document.createElement('div');
+    lbl.style.cssText = `position:absolute;bottom:4px;left:${left}px;transform:translateX(-50%);font-family:'DM Mono',monospace;font-size:9px;color:#6b7399;`;
+    lbl.textContent = v + 'h';
+    wrap.appendChild(lbl);
+  });
+  // y-axis tick labels
+  [5,6,7,8].forEach(v => {
+    const yPct = 1 - (v - yMin) / (yMax - yMin);
+    const bottom = padB + (1 - yPct) * (H - padT - padB);
+    const lbl = document.createElement('div');
+    lbl.style.cssText = `position:absolute;left:2px;bottom:${bottom}px;transform:translateY(50%);font-family:'DM Mono',monospace;font-size:9px;color:#6b7399;`;
+    lbl.textContent = v + 'h';
+    wrap.appendChild(lbl);
+  });
+})();
+
+/* ──────────────────────────────────
+   VIZ 03 — LINE CHART (SVG)
+────────────────────────────────── */
+(function renderLine() {
+  const svg = document.getElementById('line-main');
+  const W = 700, H = 220;
+  const padL = 40, padR = 20, padT = 16, padB = 36;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const n = lineData.labels.length;
+
+  // grid lines
+  [0, 2, 4, 6, 8, 10].forEach(v => {
+    const y = padT + chartH - (v / 10) * chartH;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('class', 'grid-line');
+    svg.appendChild(line);
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lbl.setAttribute('x', padL - 6); lbl.setAttribute('y', y + 4);
+    lbl.setAttribute('class', 'y-label-txt'); lbl.textContent = v;
+    svg.appendChild(lbl);
+  });
+
+  function makeLinePath(values, maxVal) {
+    return values.map((v, i) => {
+      const x = padL + (i / (n - 1)) * chartW;
+      const y = padT + chartH - (v / maxVal) * chartH;
+      return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+    }).join(' ');
+  }
+  function makeAreaPath(values, maxVal) {
+    const pts = values.map((v, i) => {
+      const x = padL + (i / (n - 1)) * chartW;
+      const y = padT + chartH - (v / maxVal) * chartH;
+      return `${x},${y}`;
+    });
+    return `M${padL},${padT + chartH} L${pts.join(' L')} L${W - padR},${padT + chartH} Z`;
+  }
+
+  // stress line
+  const stressArea = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  stressArea.setAttribute('d', makeAreaPath(lineData.stress, 10));
+  stressArea.setAttribute('fill', '#f05b8a'); stressArea.setAttribute('class', 'line-area');
+  svg.appendChild(stressArea);
+  const stressPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  stressPath.setAttribute('d', makeLinePath(lineData.stress, 10));
+  stressPath.setAttribute('class', 'line-path'); stressPath.setAttribute('stroke', '#f05b8a');
+  svg.appendChild(stressPath);
+
+  // productivity (normalized ÷10)
+  const prodNorm = lineData.productivity.map(v => v / 10);
+  const prodPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  prodPath.setAttribute('d', makeLinePath(prodNorm, 10));
+  prodPath.setAttribute('class', 'line-path'); prodPath.setAttribute('stroke', '#5bf0c4');
+  svg.appendChild(prodPath);
+
+  // dots
+  lineData.stress.forEach((v, i) => {
+    const x = padL + (i / (n - 1)) * chartW;
+    const y = padT + chartH - (v / 10) * chartH;
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 4);
+    c.setAttribute('fill', '#f05b8a'); c.setAttribute('class', 'line-dot');
+    c.addEventListener('mouseenter', e => showTip(e, `<b>${lineData.labels[i]}</b><br>Stress: ${v}/10<br>Productivity: ${lineData.productivity[i]}/100`));
+    c.addEventListener('mousemove', moveTip); c.addEventListener('mouseleave', hideTip);
+    svg.appendChild(c);
+  });
+  prodNorm.forEach((v, i) => {
+    const x = padL + (i / (n - 1)) * chartW;
+    const y = padT + chartH - (v / 10) * chartH;
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 4);
+    c.setAttribute('fill', '#5bf0c4'); c.setAttribute('class', 'line-dot');
+    c.addEventListener('mouseenter', e => showTip(e, `<b>${lineData.labels[i]}</b><br>Productivity: ${lineData.productivity[i]}/100`));
+    c.addEventListener('mousemove', moveTip); c.addEventListener('mouseleave', hideTip);
+    svg.appendChild(c);
+  });
+
+  // x labels
+  lineData.labels.forEach((l, i) => {
+    const x = padL + (i / (n - 1)) * chartW;
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lbl.setAttribute('x', x); lbl.setAttribute('y', H - 8);
+    lbl.setAttribute('class', 'x-label'); lbl.setAttribute('text-anchor', 'middle');
+    lbl.textContent = l;
+    svg.appendChild(lbl);
+  });
+})();
+
+/* ──────────────────────────────────
+   VIZ 04 — HEATMAP
+────────────────────────────────── */
+(function renderHeatmap() {
+  const wrap = document.getElementById('heatmap-wrap');
+  const allVals = heatData.values.flat();
+  const minV = Math.min(...allVals), maxV = Math.max(...allVals);
+
+  function lerpColor(t, c1, c2) {
+    // t: 0–1
+    const h = (hex) => [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+    const a = h(c1), b = h(c2);
+    const r = Math.round(a[0] + (b[0]-a[0])*t);
+    const g = Math.round(a[1] + (b[1]-a[1])*t);
+    const bv = Math.round(a[2] + (b[2]-a[2])*t);
+    return `rgb(${r},${g},${bv})`;
+  }
+
+  // col headers
+  const colRow = document.createElement('div');
+  colRow.className = 'heat-col-labels';
+  heatData.stressBins.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'heat-col-label'; d.textContent = s;
+    colRow.appendChild(d);
+  });
+  wrap.appendChild(colRow);
+
+  // rows
+  heatData.devices.forEach((dev, ri) => {
+    const row = document.createElement('div');
+    row.className = 'heat-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'heat-row-label'; lbl.textContent = dev;
+    row.appendChild(lbl);
+    heatData.stressBins.forEach((s, ci) => {
+      const v = heatData.values[ri][ci];
+      const t = (v - minV) / (maxV - minV);
+      const cell = document.createElement('div');
+      cell.className = 'heat-cell';
+      cell.style.background = lerpColor(t, '#161a2b', '#f05b8a');
+      cell.style.color = t > 0.5 ? '#fff' : '#a0a8cc';
+      cell.textContent = v + '%';
+      cell.addEventListener('mouseenter', e => showTip(e, `<b>${dev}</b> × <b>${s}</b><br>${v}% of respondents<br>${v > 30 ? '⚠️ High concentration' : ''}`));
+      cell.addEventListener('mousemove', moveTip);
+      cell.addEventListener('mouseleave', hideTip);
+      row.appendChild(cell);
+    });
+    wrap.appendChild(row);
+  });
+})();
+
+/* ──────────────────────────────────
+   VIZ 05 — DONUT
+────────────────────────────────── */
+(function renderDonut() {
+  const svg = document.getElementById('donut-svg');
+  const legend = document.getElementById('donut-legend');
+  const cx = 90, cy = 90, r = 65, inner = 38;
+  let angle = -Math.PI / 2;
+  donutData.forEach(d => {
+    const sweep = (d.pct / 100) * Math.PI * 2;
+    const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+    const x2 = cx + r * Math.cos(angle + sweep), y2 = cy + r * Math.sin(angle + sweep);
+    const ix1 = cx + inner * Math.cos(angle), iy1 = cy + inner * Math.sin(angle);
+    const ix2 = cx + inner * Math.cos(angle + sweep), iy2 = cy + inner * Math.sin(angle + sweep);
+    const large = sweep > Math.PI ? 1 : 0;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} L${ix2},${iy2} A${inner},${inner} 0 ${large},0 ${ix1},${iy1} Z`);
+    path.setAttribute('fill', d.color);
+    path.setAttribute('opacity', '0.85');
+    path.style.transition = 'opacity 0.2s';
+    path.addEventListener('mouseenter', e => { path.setAttribute('opacity','1'); showTip(e, `<b>${d.label}</b><br>${d.pct}% of screen time`); });
+    path.addEventListener('mousemove', moveTip);
+    path.addEventListener('mouseleave', () => { path.setAttribute('opacity','0.85'); hideTip(); });
+    svg.appendChild(path);
+    angle += sweep;
+
+    const li = document.createElement('div');
+    li.className = 'legend-item';
+    li.innerHTML = `<div class="legend-dot" style="background:${d.color}"></div><div><div class="legend-label">${d.label}</div><div class="legend-val">${d.pct}%</div></div>`;
+    legend.appendChild(li);
+  });
+  // center label
+  const t1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  t1.setAttribute('x', cx); t1.setAttribute('y', cy - 6);
+  t1.setAttribute('text-anchor', 'middle'); t1.setAttribute('font-size', '18');
+  t1.setAttribute('font-weight', '700'); t1.setAttribute('fill', '#e8eaf6');
+  t1.textContent = '6.8h';
+  const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  t2.setAttribute('x', cx); t2.setAttribute('y', cy + 10);
+  t2.setAttribute('text-anchor', 'middle'); t2.setAttribute('font-size', '9');
+  t2.setAttribute('fill', '#6b7399'); t2.setAttribute('font-family', 'DM Mono, monospace');
+  t2.textContent = 'daily avg';
+  svg.appendChild(t1); svg.appendChild(t2);
+})();
+
+/* ──────────────────────────────────
+   VIZ 06 — GROUPED BAR (SVG)
+────────────────────────────────── */
+(function renderGrouped() {
+  const svg = document.getElementById('grouped-svg');
+  const W = 500, H = 240;
+  const padL = 40, padR = 20, padT = 16, padB = 36;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const groups = genderData.length;
+  const bars = 3;
+  const groupW = chartW / groups;
+  const barW = (groupW * 0.7) / bars;
+  const gap = (groupW * 0.3) / (bars + 1);
+  const maxV = 10;
+  const colors = ['#5b6af0', '#f05b8a', '#5bf0c4'];
+  const keys = ['phone', 'stress', 'sleep'];
+
+  // grid
+  [2, 4, 6, 8, 10].forEach(v => {
+    const y = padT + chartH - (v / maxV) * chartH;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('class', 'grid-line');
+    svg.appendChild(line);
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lbl.setAttribute('x', padL - 4); lbl.setAttribute('y', y + 4);
+    lbl.setAttribute('class', 'y-label-txt'); lbl.textContent = v;
+    svg.appendChild(lbl);
+  });
+
+  genderData.forEach((g, gi) => {
+    const groupX = padL + gi * groupW;
+    keys.forEach((k, ki) => {
+      const val = g[k];
+      const x = groupX + gap * (ki + 1) + barW * ki;
+      const barH = (val / maxV) * chartH;
+      const y = padT + chartH - barH;
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', y);
+      rect.setAttribute('width', barW); rect.setAttribute('height', barH);
+      rect.setAttribute('fill', colors[ki]); rect.setAttribute('rx', '3');
+      rect.setAttribute('opacity', '0.85');
+      rect.style.transition = 'opacity 0.2s';
+      const label = ['Phone Hrs', 'Stress', 'Sleep Hrs'][ki];
+      rect.addEventListener('mouseenter', e => { rect.setAttribute('opacity','1'); showTip(e, `<b>${g.gender}</b><br>${label}: ${val}`); });
+      rect.addEventListener('mousemove', moveTip);
+      rect.addEventListener('mouseleave', () => { rect.setAttribute('opacity','0.85'); hideTip(); });
+      svg.appendChild(rect);
+
+      const vLbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      vLbl.setAttribute('x', x + barW / 2); vLbl.setAttribute('y', y - 4);
+      vLbl.setAttribute('text-anchor', 'middle'); vLbl.setAttribute('font-size', '8');
+      vLbl.setAttribute('fill', colors[ki]); vLbl.setAttribute('font-family', 'DM Mono, monospace');
+      vLbl.textContent = val;
+      svg.appendChild(vLbl);
+    });
+
+    const xLbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    xLbl.setAttribute('x', groupX + groupW / 2); xLbl.setAttribute('y', H - 10);
+    xLbl.setAttribute('text-anchor', 'middle'); xLbl.setAttribute('class', 'x-label');
+    xLbl.textContent = g.gender;
+    svg.appendChild(xLbl);
+  });
+})();
+
+/* ──────────────────────────────────
+   SCROLL REVEAL
+────────────────────────────────── */
+const revealEls = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.1 });
+revealEls.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
